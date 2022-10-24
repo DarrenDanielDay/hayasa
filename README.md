@@ -1,7 +1,7 @@
 # hayasa
 
 <div align="center">
-  <img src="./logo.png" />
+  <img src="./logo.png" width="192" height="192" />
 </div>
 
 English | [简体中文](./README.zh-CN.md)
