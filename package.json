@@ -1,0 +1,57 @@
+{
+  "name": "__NAME__",
+  "version": "0.1.0",
+  "description": "__DESCRIPTION__",
+  "main": "dist/index.js",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "npm run build:typescript && npm run build:browser",
+    "build:typescript": "ts-esmbuilder",
+    "build:browser": "npx rollup --config rollup.config.js",
+    "format": "prettier --write .",
+    "start": "tsc -w",
+    "test": "jest --coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DarrenDanielDay/__NAME__.git"
+  },
+  "keywords": [],
+  "author": {
+    "email": "Darren_Daniel_Day@hotmail.com",
+    "name": "Darren Daniel Day",
+    "url": "https://github.com/DarrenDanielDay"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/DarrenDanielDay/__NAME__/issues"
+  },
+  "homepage": "https://github.com/DarrenDanielDay/__NAME__#readme",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "exports": {
+    ".": {
+      "browser": "./dist/index.browser.esm.min.js",
+      "node": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "devDependencies": {
+    "@rollup/plugin-replace": "^4.0.0",
+    "@types/jest": "^29.0.1",
+    "@types/node": "^18.7.17",
+    "esbuild": "^0.15.7",
+    "jest": "^29.0.3",
+    "prettier": "^2.7.1",
+    "rollup": "^2.79.1",
+    "rollup-plugin-terser": "^7.0.2",
+    "ts-esmbuilder": "^0.1.4",
+    "ts-jest": "^29.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.8.3"
+  }
+}
