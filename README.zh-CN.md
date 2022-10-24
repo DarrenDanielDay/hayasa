@@ -10,7 +10,7 @@
 
 [![Auto Test CI](https://github.com/DarrenDanielDay/hayasa/actions/workflows/test.yml/badge.svg)](https://github.com/DarrenDanielDay/hayasa/actions/) [![Publish CI](https://github.com/DarrenDanielDay/hayasa/actions/workflows/publish.yml/badge.svg)](https://github.com/DarrenDanielDay/hayasa/actions/) [![npm version](https://badge.fury.io/js/hayasa.svg)](https://badge.fury.io/js/hayasa)
 
-A JavaScript/TypeScript parser for code analysis designed for speed and browser.
+一个为速度与浏览器设计的JavaScript/TypeScript语法分析器。
 
 ## 许可证
 
