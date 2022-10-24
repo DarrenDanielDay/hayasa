@@ -1,4 +1,4 @@
-# __NAME__
+# hayasa
 
 <div style="text-align: center">
   <img src="./logo.png" />
@@ -8,9 +8,9 @@
 
 ---
 
-[![Auto Test CI](https://github.com/DarrenDanielDay/__NAME__/actions/workflows/test.yml/badge.svg)](https://github.com/DarrenDanielDay/__NAME__/actions/) [![Publish CI](https://github.com/DarrenDanielDay/__NAME__/actions/workflows/publish.yml/badge.svg)](https://github.com/DarrenDanielDay/__NAME__/actions/) [![npm version](https://badge.fury.io/js/__NAME__.svg)](https://badge.fury.io/js/__NAME__)
+[![Auto Test CI](https://github.com/DarrenDanielDay/hayasa/actions/workflows/test.yml/badge.svg)](https://github.com/DarrenDanielDay/hayasa/actions/) [![Publish CI](https://github.com/DarrenDanielDay/hayasa/actions/workflows/publish.yml/badge.svg)](https://github.com/DarrenDanielDay/hayasa/actions/) [![npm version](https://badge.fury.io/js/hayasa.svg)](https://badge.fury.io/js/hayasa)
 
-__DESCRIPTION__
+A JavaScript/TypeScript parser for code analysis designed for speed and browser.
 
 ## 许可证
 
