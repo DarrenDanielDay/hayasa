@@ -1,4 +1,5 @@
-import { assert, charRange, toMap } from "./util";
+import { Assert, React } from "./assertions";
+import { charRange, toMap } from "./util";
 
 export const enum LexicalType {
   Identifier,
@@ -93,40 +94,36 @@ export interface LexicalToken {
 
 //#region global states
 export let code: string = "";
+/**
+ * @internal
+ */
+export const readCode = () => code;
 export let cursor = 0;
+/**
+ * @internal
+ */
+export const readCursor = () => cursor;
 /** Helps to see if non ignored newline is added. */
 export let hasNewline = false;
 export let scopes: LexicalScope[] = [];
+/**
+ * @internal
+ */
+export const readScopes = () => scopes;
 export let enterScope: (scope: LexicalScope) => void = scopes.push.bind(scopes);
 export let quiteScope: () => void = scopes.pop.bind(scopes);
 export let tokens: LexicalToken[] = [];
+/**
+ * @internal
+ */
+export const readTokens = () => tokens;
 export let resolveToken: (token: LexicalToken) => void = tokens.push.bind(tokens);
-
-const currentChar = (test: string | ((char: string) => boolean)) => ({
-  currentChar: () => (typeof test === "string" ? test === code[cursor] : test(code[cursor])),
-});
-
-const nextChar = (test: (char: string) => boolean) => ({
-  nextChar: () => test(code[cursor]),
-});
-
-const expectScopes = (scopes: LexicalScope[]) => ({
-  expectScopes: () => {
-    const scope = scopes.at(-1)!;
-    return scopes.some((s) => s === scope);
-  },
-});
-expectScopes.not = (unexpectedScopes: LexicalScope[]) => ({
-  expectScopesNot: () => {
-    const scope = scopes.at(-1)!;
-    return unexpectedScopes.every((s) => s !== scope);
-  },
-});
 
 export const cleanUp = () => {
   cursor = 0;
   hasNewline = false;
   scopes = [LexicalScope.TopLevel];
+  enterScope = scopes.push.bind(scopes);
   quiteScope = scopes.pop.bind(scopes);
   tokens = [];
   resolveToken = tokens.push.bind(tokens);
@@ -144,15 +141,15 @@ export const initCode = (input: string) => {
  * Skip comments and blanks. They will never be preserved in `hayasa`.
  */
 export const skipCommentAndBlanks = () => {
-  assert({
-    fn: skipCommentAndBlanks,
-    ...expectScopes.not([
+  <Assert
+    fn={skipCommentAndBlanks}
+    excludeScopes={[
       LexicalScope.DoubleQuoteLiteral,
       LexicalScope.SingleQuoteLiteral,
       LexicalScope.NumericLiteral,
       LexicalScope.RegExpLiteral,
-    ]),
-  });
+    ]}
+  ></Assert>;
   for (let char = code[cursor]; ; char = code[++cursor]) {
     if (char === Chars.Space) {
       continue;
@@ -172,20 +169,14 @@ export const skipCommentAndBlanks = () => {
       if (next === Chars.Star) {
         cursor++;
         while (code[cursor] !== Chars.Star || code[cursor + 1] !== Chars.Slash) cursor++;
-        assert({
-          fn: skipCommentAndBlanks,
-          ...currentChar(Chars.Star),
-        });
+        <Assert fn={skipCommentAndBlanks} currentChar={Chars.Star}></Assert>;
         cursor += 2;
         continue;
       }
     }
     break;
   }
-  assert({
-    fn: skipCommentAndBlanks,
-    ...currentChar((c) => c !== Chars.Space),
-  });
+  <Assert fn={skipCommentAndBlanks} currentChar={(c) => c !== Chars.Space}></Assert>;
 };
 
 //#endregion
@@ -200,16 +191,10 @@ const digits = charRange("0", "9");
 const identifier = toMap([...identifierNoDigitChars, ...digits]);
 
 export const readWord = (): string => {
-  assert({
-    fn: readWord,
-    ...currentChar((c) => identifierNoDigit[c]),
-  });
+  <Assert fn={readWord} currentChar={(c) => identifierNoDigit[c]}></Assert>;
   const begin = cursor;
   for (let char = code[cursor]!; identifier[char]; char = code[++cursor]);
-  assert({
-    fn: readWord,
-    ...currentChar((c) => !identifier[c]),
-  });
+  <Assert fn={readWord} currentChar={(c) => !identifier[c]}></Assert>;
   const result = code.slice(begin, cursor);
   skipCommentAndBlanks();
   return result;
@@ -222,10 +207,7 @@ export const readWord = (): string => {
 const createQuoteScope = (quote: '"' | "'") => {
   const expectingScope = quote === "'" ? LexicalScope.SingleQuoteLiteral : LexicalScope.DoubleQuoteLiteral;
   return () => {
-    assert({
-      ...currentChar(quote),
-      ...expectScopes([expectingScope]),
-    });
+    <Assert currentChar={quote} expectScopes={[expectingScope]}></Assert>;
     const start = cursor;
     cursor++;
     while (code[cursor] !== quote) {
@@ -253,17 +235,17 @@ export const doubleQuoteScope = createQuoteScope('"');
 const decimals = toMap(digits);
 const decimals_ = toMap(digits.concat(Chars.UnderLine));
 export const readNumericLiteral = () => {
-  assert({
-    fn: readNumericLiteral,
-    ...expectScopes([LexicalScope.NumericLiteral]),
-    ...currentChar((c) => decimals[c] || c === Chars.Dot),
-  });
+  <Assert
+    fn={readNumericLiteral}
+    excludeScopes={[LexicalScope.NumericLiteral]}
+    currentChar={(c) => decimals[c] || c === Chars.Dot}
+  ></Assert>;
   const first = code[cursor];
   if (first === "0") {
-    assert({
-      fn: readNumericLiteral,
-      ...nextChar((c) => [..."bxo"].every((cc) => cc === c || cc === c.toLowerCase())),
-    });
+    <Assert
+      fn={readNumericLiteral}
+      nextChar={(c) => decimals[c] || [..."bxo"].some((cc) => cc === c || cc === c.toLowerCase())}
+    ></Assert>;
     switch (code[cursor + 1]) {
       case "b":
       case "B":
@@ -314,10 +296,7 @@ export const readDecOrLegacyOct = () => {
 const bins = charRange("0", "1");
 const binary_ = toMap([...bins, Chars.UnderLine]);
 export const readBin = () => {
-  assert({
-    fn: readBin,
-    ...currentChar("0"),
-  });
+  <Assert fn={readBin} currentChar="0"></Assert>;
   const start = cursor;
   cursor += 2;
   for (let char = code[cursor]; binary_[char]; char = code[++cursor]);
@@ -327,10 +306,8 @@ export const readBin = () => {
 const octs = charRange("0", "7");
 const octal_ = toMap([...octs, Chars.UnderLine]);
 export const readOct = () => {
-  assert({
-    fn: readBin,
-    ...currentChar("0"),
-  });
+  <Assert fn={readOct} currentChar="0"></Assert>;
+
   const start = cursor;
   cursor += 2;
   for (let char = code[cursor]; octal_[char]; char = code[++cursor]);
@@ -340,10 +317,7 @@ export const readOct = () => {
 const hexes = digits.concat(charRange("a", "f")).concat("A", "F");
 const hexadecimal_ = toMap([...hexes, Chars.UnderLine]);
 export const readHex = () => {
-  assert({
-    fn: readBin,
-    ...currentChar("0"),
-  });
+  <Assert fn={readHex} currentChar="0"></Assert>;
   const start = cursor;
   cursor += 2;
   for (let char = code[cursor]; hexadecimal_[char]; char = code[++cursor]);
