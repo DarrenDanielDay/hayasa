@@ -11,6 +11,7 @@ import {
   singleQuoteScope,
   tokens,
   doubleQuoteScope,
+  readNumericLiteral,
 } from "./lexer";
 describe("lexer.ts", () => {
   describe("skip comment and blanks", () => {
@@ -90,6 +91,77 @@ describe("lexer.ts", () => {
       enterScope(LexicalScope.DoubleQuoteLiteral);
       doubleQuoteScope();
       expect(tokens.at(-1)!.content).toBe('"I \\\'m \\"writing\\" this parser!"');
+    });
+  });
+
+  describe("numeric literal", () => {
+    beforeEach(() => {
+      cleanUp();
+    });
+    it("should read binary literal", () => {
+      initCode("0b101010101111_0_1.toFixed(2)");
+      const numLiteral = readNumericLiteral();
+      expect(numLiteral).toBe("0b101010101111_0_1");
+      expect(code.slice(cursor)).toBe(".toFixed(2)");
+    });
+    it("should read octal literal", () => {
+      initCode("0o12_36_7_512673516.toFixed(2)");
+      const numLiteral = readNumericLiteral();
+      expect(numLiteral).toBe("0o12_36_7_512673516");
+      expect(code.slice(cursor)).toBe(".toFixed(2)");
+    });
+    it("should read hexadecimal", () => {
+      initCode("0x78e9_723f60abc.toFixed(2)");
+      const numLiteral = readNumericLiteral();
+      expect(numLiteral).toBe("0x78e9_723f60abc");
+      expect(code.slice(cursor)).toBe(".toFixed(2)");
+    });
+    it("should read decimal without float point", () => {
+      initCode("178_93_46128936 .toFixed(2)");
+      const numLiteral = readNumericLiteral();
+      expect(numLiteral).toBe("178_93_46128936");
+      expect(code.slice(cursor)).toBe(" .toFixed(2)");
+    });
+    it("should read decimal with float point", () => {
+      initCode("192873_0.1129_2.toFixed(2)");
+      const numLiteral = readNumericLiteral();
+      expect(numLiteral).toBe("192873_0.1129_2");
+      expect(code.slice(cursor)).toBe(".toFixed(2)");
+    });
+    it("should read simplified float", () => {
+      initCode(".1962.toFixed(2)");
+      const numLiteral = readNumericLiteral();
+      expect(numLiteral).toBe(".1962");
+      expect(code.slice(cursor)).toBe(".toFixed(2)");
+    })
+    it("should read decimal and exp", () => {
+      initCode("1e9_8.toFixed(2)");
+      const numLiteral = readNumericLiteral();
+      expect(numLiteral).toBe("1e9_8");
+      expect(code.slice(cursor)).toBe(".toFixed(2)");
+    });
+    it("should read decimal and exp with signs", () => {
+      initCode("1E+9_8.toFixed(2)");
+      const numLiteral = readNumericLiteral();
+      expect(numLiteral).toBe("1E+9_8");
+      expect(code.slice(cursor)).toBe(".toFixed(2)");
+      cleanUp();
+      initCode("20_22E-9_8.toFixed(2)");
+      const numLiteral2 = readNumericLiteral();
+      expect(numLiteral2).toBe("20_22E-9_8");
+      expect(code.slice(cursor)).toBe(".toFixed(2)");
+    });
+    it("should read leagacy octal", () => {
+      initCode("01271623.toFixed(2)");
+      const numLiteral = readNumericLiteral();
+      expect(numLiteral).toBe("01271623");
+      expect(code.slice(cursor)).toBe(".toFixed(2)");
+    });
+    it("should work altogether", () => {
+      initCode("17_162.8_92E-9_8.toFixed(2)");
+      const numLiteral = readNumericLiteral();
+      expect(numLiteral).toBe("17_162.8_92E-9_8");
+      expect(code.slice(cursor)).toBe(".toFixed(2)");
     });
   });
 });

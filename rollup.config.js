@@ -10,6 +10,7 @@ const config = {
     pluginReplace({
       preventAssignment: true,
       "process.env.NODE_ENV": "'production'",
+      __DEV__: "false",
     }),
   ],
   output: {

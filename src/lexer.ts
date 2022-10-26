@@ -1,11 +1,11 @@
-import { assert } from "./util";
+import { assert, charRange, toMap } from "./util";
 
 export const enum LexicalType {
   Identifier,
   Reserved,
   Operator,
   StringLiteral,
-  NumberLiteral,
+  NumericLiteral,
 }
 export const enum LexicalScope {
   TopLevel,
@@ -41,9 +41,12 @@ export const enum Chars {
   Dollar = "$",
   UnderLine = "_",
   Assign = "=",
+  Plus = "+",
+  Minus = "-",
   QuestionMark = "?",
   ExclamationMark = "!",
   Comma = ",",
+  Dot = ".",
   Colon = ":",
   Semicolon = ";",
   LParenthesis = "(",
@@ -103,6 +106,10 @@ const currentChar = (test: string | ((char: string) => boolean)) => ({
   currentChar: () => (typeof test === "string" ? test === code[cursor] : test(code[cursor])),
 });
 
+const nextChar = (test: (char: string) => boolean) => ({
+  nextChar: () => test(code[cursor]),
+});
+
 const expectScopes = (scopes: LexicalScope[]) => ({
   expectScopes: () => {
     const scope = scopes.at(-1)!;
@@ -146,8 +153,7 @@ export const skipCommentAndBlanks = () => {
       LexicalScope.RegExpLiteral,
     ]),
   });
-  for (; ; cursor++) {
-    const char = code[cursor];
+  for (let char = code[cursor]; ; char = code[++cursor]) {
     if (char === Chars.Space) {
       continue;
     }
@@ -186,12 +192,12 @@ export const skipCommentAndBlanks = () => {
 
 //#region identifier/keywords
 
-const alphabet = Array.from({ length: 26 }, (_, i) => String.fromCharCode("a".charCodeAt(0) + i));
-const identifierNoDigitChars = [...alphabet, ...alphabet.map((c) => c.toUpperCase()), "$", "_"];
-const identifierNoDigit = Object.fromEntries(identifierNoDigitChars.map((c) => [c, true]));
+const alphabet = charRange("a", "z");
+const identifierNoDigitChars = [...alphabet, ...alphabet.map((c) => c.toUpperCase()), Chars.Dollar, Chars.UnderLine];
+const identifierNoDigit = toMap(identifierNoDigitChars);
 
-const digits = Array.from({ length: 10 }, (_, i) => i.toString());
-const identifier = Object.fromEntries([...identifierNoDigitChars, ...digits].map((c) => [c, true]));
+const digits = charRange("0", "9");
+const identifier = toMap([...identifierNoDigitChars, ...digits]);
 
 export const readWord = (): string => {
   assert({
@@ -199,7 +205,7 @@ export const readWord = (): string => {
     ...currentChar((c) => identifierNoDigit[c]),
   });
   const begin = cursor;
-  for (let char = code[cursor]!; identifier[char]; cursor++, char = code[cursor]);
+  for (let char = code[cursor]!; identifier[char]; char = code[++cursor]);
   assert({
     fn: readWord,
     ...currentChar((c) => !identifier[c]),
@@ -241,4 +247,107 @@ const createQuoteScope = (quote: '"' | "'") => {
 };
 export const singleQuoteScope = createQuoteScope("'");
 export const doubleQuoteScope = createQuoteScope('"');
+//#endregion
+
+//#region numeric literal
+const decimals = toMap(digits);
+const decimals_ = toMap(digits.concat(Chars.UnderLine));
+export const readNumericLiteral = () => {
+  assert({
+    fn: readNumericLiteral,
+    ...expectScopes([LexicalScope.NumericLiteral]),
+    ...currentChar((c) => decimals[c] || c === Chars.Dot),
+  });
+  const first = code[cursor];
+  if (first === "0") {
+    assert({
+      fn: readNumericLiteral,
+      ...nextChar((c) => [..."bxo"].every((cc) => cc === c || cc === c.toLowerCase())),
+    });
+    switch (code[cursor + 1]) {
+      case "b":
+      case "B":
+        return readBin();
+      case "o":
+      case "O":
+        return readOct();
+      case "x":
+      case "X":
+        return readHex();
+    }
+  }
+  return readDecOrLegacyOct();
+};
+
+/**
+ * Read an decimal literal. Legacy octal literal is also treated as decimal.
+ */
+export const readDecOrLegacyOct = () => {
+  const start = cursor;
+  let has89 = false;
+  let char = code[cursor];
+  const startsWithZero = char === "0";
+  for (; decimals_[char]; char = code[++cursor]) {
+    if (char === "8" || char === "9") {
+      has89 = true;
+    }
+  }
+  if (startsWithZero && !has89) {
+    // legacy octal literal
+    return code.slice(start, cursor);
+  } else {
+    if (char === Chars.Dot) {
+      // float part
+      for (char = code[++cursor]; decimals_[char]; char = code[++cursor]);
+    }
+    if (char === "e" || char === "E") {
+      // exponential part
+      char = code[++cursor];
+      if (char === Chars.Minus || char === Chars.Plus) {
+        char = code[++cursor];
+      }
+      for (; decimals_[char]; char = code[++cursor]);
+    }
+  }
+  return code.slice(start, cursor);
+};
+const bins = charRange("0", "1");
+const binary_ = toMap([...bins, Chars.UnderLine]);
+export const readBin = () => {
+  assert({
+    fn: readBin,
+    ...currentChar("0"),
+  });
+  const start = cursor;
+  cursor += 2;
+  for (let char = code[cursor]; binary_[char]; char = code[++cursor]);
+  return code.slice(start, cursor);
+};
+
+const octs = charRange("0", "7");
+const octal_ = toMap([...octs, Chars.UnderLine]);
+export const readOct = () => {
+  assert({
+    fn: readBin,
+    ...currentChar("0"),
+  });
+  const start = cursor;
+  cursor += 2;
+  for (let char = code[cursor]; octal_[char]; char = code[++cursor]);
+  return code.slice(start, cursor);
+};
+
+const hexes = digits.concat(charRange("a", "f")).concat("A", "F");
+const hexadecimal_ = toMap([...hexes, Chars.UnderLine]);
+export const readHex = () => {
+  assert({
+    fn: readBin,
+    ...currentChar("0"),
+  });
+  const start = cursor;
+  cursor += 2;
+  for (let char = code[cursor]; hexadecimal_[char]; char = code[++cursor]);
+  return code.slice(start, cursor);
+};
+
 //#endregion
