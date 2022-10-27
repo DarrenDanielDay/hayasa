@@ -212,20 +212,34 @@ export const readWord = (): string => {
 
 //#region string literal
 
+const skipEscapeSequence = () => {
+  <Assert fn={skipEscapeSequence} currentChar={Chars.BackSlash}></Assert>;
+  const escapeChar = code[++cursor];
+  switch (escapeChar) {
+    case "u": // Unicode escape
+      cursor += 4;
+      break;
+    case "x": // Latin-1 escape
+      cursor += 2;
+      break;
+    default: // \0 \' \" \\ \n \r \v \t \b \f and legacy octal escape
+      // Since hayasa will never interpret them, other cases we can just skip the character.
+      cursor++;
+      break;
+  }
+};
+
 const createQuoteScope = (quote: '"' | "'") => {
   const expectingScope = quote === "'" ? LexicalScope.SingleQuoteLiteral : LexicalScope.DoubleQuoteLiteral;
   return () => {
     <Assert currentChar={quote} expectScopes={[expectingScope]}></Assert>;
     const start = cursor;
-    cursor++;
-    while (code[cursor] !== quote) {
-      while (code[cursor] !== quote) cursor++; // Cursor will stop at quote.
-      const previous = code[cursor - 1];
-      if (previous === Chars.BackSlash) {
-        // If it's an escape character, move to next and continue loop.
-        cursor++;
+    for (let char = code[++cursor]; char !== quote; char = code[++cursor]) {
+      if (char === Chars.BackSlash) {
+        skipEscapeSequence();
       }
     }
+    // Skip ending quote.
     cursor++;
     const rawLiteral = code.slice(start, cursor);
     resolveToken({
@@ -336,20 +350,25 @@ export const readHex = () => {
 
 //#region template literal
 export const readTemplateLiteral = () => {
+  <Assert fn={readTemplateLiteral} expectScopes={[LexicalScope.TemplateLiteral]}></Assert>;
   const start = cursor;
-  let char = code[cursor];
-  while (char !== Chars.GraveAccent) {
-    char = code[++cursor];
-    if (char === Chars.LBrace && code[cursor - 1] === Chars.Dollar && code[cursor - 2] !== Chars.BackSlash) {
+  for (let char = code[cursor]; char !== Chars.GraveAccent; ) {
+    if (char === Chars.BackSlash) {
+      skipEscapeSequence();
+      char = code[cursor];
+      continue;
+    }
+    if (char === Chars.Dollar && code[cursor + 1] === Chars.LBrace) {
+      // Move to brace as ending punctuator.
+      cursor++;
       enterScope(LexicalScope.TemplateLiteralExpression);
       break;
     }
-    if (char === Chars.GraveAccent && code[cursor - 1] === Chars.BackSlash) {
-      char = code[++cursor];
-    }
+    char = code[++cursor];
   }
+  // Skip ending punctuator.
   cursor++;
   return code.slice(start, cursor);
-}
+};
 
 //#endregion

@@ -76,10 +76,10 @@ describe("lexer.ts", () => {
       cleanUp();
     });
     it("should include escape chars", () => {
-      initCode("'I \\'m writing this parser!' // Some comment");
+      initCode("'I \\'m writing \\u0061 parser!' // Some comment");
       enterScope(LexicalScope.SingleQuoteLiteral);
       singleQuoteScope();
-      expect(tokens.at(-1)!.content).toBe("'I \\'m writing this parser!'");
+      expect(tokens.at(-1)!.content).toBe("'I \\'m writing \\u0061 parser!'");
     });
   });
 
@@ -88,10 +88,10 @@ describe("lexer.ts", () => {
       cleanUp();
     });
     it("should include escape chars", () => {
-      initCode('"I \\\'m \\"writing\\" this parser!" // Some comment');
+      initCode('"I \\\'m \\"writing\\" \\x61 parser!" // Some comment');
       enterScope(LexicalScope.DoubleQuoteLiteral);
       doubleQuoteScope();
-      expect(tokens.at(-1)!.content).toBe('"I \\\'m \\"writing\\" this parser!"');
+      expect(tokens.at(-1)!.content).toBe('"I \\\'m \\"writing\\" \\x61 parser!"');
     });
   });
 
@@ -172,16 +172,19 @@ describe("lexer.ts", () => {
     });
     it("should read template with expression opening punctuator ${", () => {
       initCode("some template \\${ $\\{ ${1 + 2} after that`");
+      enterScope(LexicalScope.TemplateLiteral);
       const template = readTemplateLiteral();
       expect(template).toBe("some template \\${ $\\{ ${");
     });
     it("should read template with trailing `", () => {
       initCode(" after that`");
+      enterScope(LexicalScope.TemplateLiteral);
       const template = readTemplateLiteral();
       expect(template).toBe(" after that`");
     });
     it("should include escaped sequence \\`", () => {
       initCode("Template with escaped grave accent punctuator \\` some other text` // not included ");
+      enterScope(LexicalScope.TemplateLiteral);
       const template = readTemplateLiteral();
       expect(template).toBe("Template with escaped grave accent punctuator \\` some other text`");
     });
