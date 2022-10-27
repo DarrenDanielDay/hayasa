@@ -1,6 +1,8 @@
 import { Assert, React } from "./assertions";
 import { charRange, toMap } from "./util";
 
+//#region enums
+
 export const enum LexicalType {
   Identifier,
   Reserved,
@@ -91,6 +93,8 @@ export interface LexicalToken {
   type: LexicalType;
   content: string;
 }
+
+//#endregion
 
 //#region global states
 export let code: string = "";
