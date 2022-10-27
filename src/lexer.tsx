@@ -7,8 +7,10 @@ export const enum LexicalType {
   Identifier,
   Reserved,
   Operator,
+  Punctuator,
   StringLiteral,
   NumericLiteral,
+  Template,
 }
 export const enum LexicalScope {
   TopLevel,
@@ -29,6 +31,7 @@ export const enum LexicalScope {
   SingleQuoteLiteral,
   DoubleQuoteLiteral,
   TemplateLiteral,
+  TemplateLiteralExpression,
   RegExpLiteral,
   TypeAnnotation,
 }
@@ -40,6 +43,7 @@ export const enum Chars {
   BackSlash = "\\",
   SingleQuote = "'",
   DoubleQuote = '"',
+  GraveAccent = "`",
   Star = "*",
   Dollar = "$",
   UnderLine = "_",
@@ -327,5 +331,25 @@ export const readHex = () => {
   for (let char = code[cursor]; hexadecimal_[char]; char = code[++cursor]);
   return code.slice(start, cursor);
 };
+
+//#endregion
+
+//#region template literal
+export const readTemplateLiteral = () => {
+  const start = cursor;
+  let char = code[cursor];
+  while (char !== Chars.GraveAccent) {
+    char = code[++cursor];
+    if (char === Chars.LBrace && code[cursor - 1] === Chars.Dollar && code[cursor - 2] !== Chars.BackSlash) {
+      enterScope(LexicalScope.TemplateLiteralExpression);
+      break;
+    }
+    if (char === Chars.GraveAccent && code[cursor - 1] === Chars.BackSlash) {
+      char = code[++cursor];
+    }
+  }
+  cursor++;
+  return code.slice(start, cursor);
+}
 
 //#endregion

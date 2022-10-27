@@ -12,6 +12,7 @@ import {
   tokens,
   doubleQuoteScope,
   readNumericLiteral,
+  readTemplateLiteral,
 } from "./lexer";
 describe("lexer.ts", () => {
   describe("skip comment and blanks", () => {
@@ -133,7 +134,7 @@ describe("lexer.ts", () => {
       const numLiteral = readNumericLiteral();
       expect(numLiteral).toBe(".1962");
       expect(code.slice(cursor)).toBe(".toFixed(2)");
-    })
+    });
     it("should read decimal and exp", () => {
       initCode("1e9_8.toFixed(2)");
       const numLiteral = readNumericLiteral();
@@ -162,6 +163,27 @@ describe("lexer.ts", () => {
       const numLiteral = readNumericLiteral();
       expect(numLiteral).toBe("17_162.8_92E-9_8");
       expect(code.slice(cursor)).toBe(".toFixed(2)");
+    });
+  });
+
+  describe("template literal", () => {
+    beforeEach(() => {
+      cleanUp();
+    });
+    it("should read template with expression opening punctuator ${", () => {
+      initCode("some template \\${ $\\{ ${1 + 2} after that`");
+      const template = readTemplateLiteral();
+      expect(template).toBe("some template \\${ $\\{ ${");
+    });
+    it("should read template with trailing `", () => {
+      initCode(" after that`");
+      const template = readTemplateLiteral();
+      expect(template).toBe(" after that`");
+    });
+    it("should include escaped sequence \\`", () => {
+      initCode("Template with escaped grave accent punctuator \\` some other text` // not included ");
+      const template = readTemplateLiteral();
+      expect(template).toBe("Template with escaped grave accent punctuator \\` some other text`");
     });
   });
 });
