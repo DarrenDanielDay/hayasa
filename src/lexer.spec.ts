@@ -13,6 +13,7 @@ import {
   doubleQuoteScope,
   readNumericLiteral,
   readTemplateLiteral,
+  readRegExpLiteral,
 } from "./lexer";
 describe("lexer.ts", () => {
   describe("skip comment and blanks", () => {
@@ -187,6 +188,18 @@ describe("lexer.ts", () => {
       enterScope(LexicalScope.TemplateLiteral);
       const template = readTemplateLiteral();
       expect(template).toBe("Template with escaped grave accent punctuator \\` some other text`");
+    });
+  });
+
+  describe("regular expression literal", () => {
+    beforeEach(() => {
+      cleanUp();
+    });
+    it("should read regular expression literal", () => {
+      initCode("/[a-z]\\//i;");
+      const regexLiteral = readRegExpLiteral();
+      expect(regexLiteral).toBe("/[a-z]\\//i");
+      expect(code.slice(cursor)).toBe(";");
     });
   });
 });

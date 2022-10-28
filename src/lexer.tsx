@@ -372,3 +372,24 @@ export const readTemplateLiteral = () => {
 };
 
 //#endregion
+
+//#region regular expression literal
+export const readRegExpLiteral = () => {
+  <Assert fn={readRegExpLiteral} currentChar={Chars.Slash}></Assert>;
+  const start = cursor;
+  for (let char = code[++cursor]; char !== Chars.Slash; ) {
+    if (char === Chars.BackSlash) {
+      skipEscapeSequence();
+      char = code[cursor];
+      continue;
+    }
+    char = code[++cursor];
+  }
+  // Skip ending `/`.
+  cursor++;
+  const regLiteral = code.slice(start, cursor);
+  const flags = readWord();
+  return regLiteral + flags;
+};
+
+//#endregion
