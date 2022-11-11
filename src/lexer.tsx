@@ -1,5 +1,5 @@
 import { Assert, React } from "./assertions";
-import { charRange, toMap } from "./util";
+import { charRange, longestMatchLength, toMap, trie } from "./util";
 
 //#region enums
 
@@ -111,6 +111,10 @@ export let cursor = 0;
  * @internal
  */
 export const readCursor = () => cursor;
+/**
+ * @internal
+ */
+export const setCursor = (value: number) => cursor = value;
 /** Helps to see if non ignored newline is added. */
 export let hasNewline = false;
 export let scopes: LexicalScope[] = [];
@@ -393,3 +397,37 @@ export const readRegExpLiteral = () => {
 };
 
 //#endregion
+const [operatorTrie, insertOperator] = trie();
+const otherPunctuators =
+  "{ ( ) [ ] . ... ; , < > <= >= == != === !== + - * % ** ++ -- << >> >>> & | ^ ! ~ && || ?? ? : = += -= *= %= **= <<= >>= >>>= &= |= ^= &&= ||= ??= =>".split(
+    " "
+  );
+for (const otherPunctuator of otherPunctuators) {
+  insertOperator(otherPunctuator);
+}
+
+export const readOperator = () => {
+  const current = code[cursor];
+  const start = cursor;
+  if (current === Chars.QuestionMark) {
+    if (code[cursor + 1] === Chars.Dot && !decimals[code[cursor + 2]!]) {
+      // Treat as optional chaining.
+      // `?.`
+      cursor += 2;
+    } else {
+      // Treat as conditional.
+      // `?`
+      cursor++;
+    }
+  } else {
+    const length = longestMatchLength(operatorTrie, code, cursor);
+    cursor += length;
+  }
+  const punctuator = code.slice(start, cursor);
+  tokens.push({
+    type: LexicalType.Punctuator,
+    content: punctuator,
+  });
+  return punctuator;
+};
+

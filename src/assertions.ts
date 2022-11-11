@@ -23,7 +23,7 @@ export interface AssertOptions {
   excludeScopes?: LexicalScope[];
 }
 
-export const Assert: react.FC<AssertOptions> = ({ fn, currentChar, nextChar, expectScopes, excludeScopes }) => {
+export const Assert: react.FC<react.PropsWithChildren<AssertOptions>> = ({ fn, currentChar, nextChar, expectScopes, excludeScopes }) => {
   if (!__DEV__) {
     return null;
   }

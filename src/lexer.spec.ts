@@ -14,6 +14,8 @@ import {
   readNumericLiteral,
   readTemplateLiteral,
   readRegExpLiteral,
+  readOperator,
+  setCursor,
 } from "./lexer";
 describe("lexer.ts", () => {
   describe("skip comment and blanks", () => {
@@ -200,6 +202,33 @@ describe("lexer.ts", () => {
       const regexLiteral = readRegExpLiteral();
       expect(regexLiteral).toBe("/[a-z]\\//i");
       expect(code.slice(cursor)).toBe(";");
+    });
+  });
+
+  describe("punctuator", () => {
+    beforeEach(() => {
+      cleanUp();
+    });
+    it("should handle optional chain", () => {
+      initCode("var x = null; x?.toString()");
+      setCursor(15);
+      const operator = readOperator();
+      expect(operator).toBe("?.");
+      expect(code.slice(cursor)).toBe("toString()");
+    })
+    it("should handle conditional expression with numerical literal", () => {
+      initCode("true?.0:1");
+      setCursor(4);
+      const operator = readOperator();
+      expect(operator).toBe("?");
+      expect(code.slice(cursor)).toBe(".0:1");
+    })
+    it("should read longest match", () => {
+      initCode("1===+1");
+      setCursor(1);
+      const operator = readOperator();
+      expect(operator).toBe("===");
+      expect(code.slice(cursor)).toBe("+1");
     });
   });
 });
