@@ -6,7 +6,6 @@ import { charRange, longestMatchLength, toMap, trie } from "./util";
 export const enum LexicalType {
   Identifier,
   Reserved,
-  Operator,
   Punctuator,
   StringLiteral,
   NumericLiteral,
@@ -14,26 +13,8 @@ export const enum LexicalType {
 }
 export const enum LexicalScope {
   TopLevel,
-  WithExport,
-  WithImport,
-  WithTopLevelAwait,
 
-  WithVar,
-  WithLet,
-  WithConst,
-  WithFunction,
-  WithAsync,
-
-  Block,
-  AsyncBlock,
-  GeneratorBlock,
-  NumericLiteral,
-  SingleQuoteLiteral,
-  DoubleQuoteLiteral,
-  TemplateLiteral,
   TemplateLiteralExpression,
-  RegExpLiteral,
-  TypeAnnotation,
 }
 
 export const enum Chars {
@@ -50,6 +31,7 @@ export const enum Chars {
   Assign = "=",
   Plus = "+",
   Minus = "-",
+  Inverse = "~",
   QuestionMark = "?",
   ExclamationMark = "!",
   Comma = ",",
@@ -74,7 +56,7 @@ export const enum ReservedOrKeywords {
 
   // loops/scope
   With = "with",
-  Function = "Function",
+  Function = "function",
   For = "for",
   While = "while",
   Do = "do",
@@ -114,7 +96,7 @@ export const readCursor = () => cursor;
 /**
  * @internal
  */
-export const setCursor = (value: number) => cursor = value;
+export const setCursor = (value: number) => (cursor = value);
 /** Helps to see if non ignored newline is added. */
 export let hasNewline = false;
 export let scopes: LexicalScope[] = [];
@@ -153,15 +135,7 @@ export const initCode = (input: string) => {
  * Skip comments and blanks. They will never be preserved in `hayasa`.
  */
 export const skipCommentAndBlanks = () => {
-  <Assert
-    fn={skipCommentAndBlanks}
-    excludeScopes={[
-      LexicalScope.DoubleQuoteLiteral,
-      LexicalScope.SingleQuoteLiteral,
-      LexicalScope.NumericLiteral,
-      LexicalScope.RegExpLiteral,
-    ]}
-  ></Assert>;
+  <Assert fn={skipCommentAndBlanks} excludeScopes={[]}></Assert>;
   for (let char = code[cursor]; ; char = code[++cursor]) {
     if (char === Chars.Space) {
       continue;
@@ -208,7 +182,6 @@ export const readWord = (): string => {
   for (let char = code[cursor]!; identifier[char]; char = code[++cursor]);
   <Assert fn={readWord} currentChar={(c) => !identifier[c]}></Assert>;
   const result = code.slice(begin, cursor);
-  skipCommentAndBlanks();
   return result;
 };
 
@@ -234,9 +207,8 @@ const skipEscapeSequence = () => {
 };
 
 const createQuoteScope = (quote: '"' | "'") => {
-  const expectingScope = quote === "'" ? LexicalScope.SingleQuoteLiteral : LexicalScope.DoubleQuoteLiteral;
   return () => {
-    <Assert currentChar={quote} expectScopes={[expectingScope]}></Assert>;
+    <Assert currentChar={quote}></Assert>;
     const start = cursor;
     for (let char = code[++cursor]; char !== quote; char = code[++cursor]) {
       if (char === Chars.BackSlash) {
@@ -250,7 +222,6 @@ const createQuoteScope = (quote: '"' | "'") => {
       content: rawLiteral,
       type: LexicalType.StringLiteral,
     });
-    quiteScope();
   };
 };
 export const singleQuoteScope = createQuoteScope("'");
@@ -261,11 +232,7 @@ export const doubleQuoteScope = createQuoteScope('"');
 const decimals = toMap(digits);
 const decimals_ = toMap(digits.concat(Chars.UnderLine));
 export const readNumericLiteral = () => {
-  <Assert
-    fn={readNumericLiteral}
-    excludeScopes={[LexicalScope.NumericLiteral]}
-    currentChar={(c) => decimals[c] || c === Chars.Dot}
-  ></Assert>;
+  <Assert fn={readNumericLiteral} currentChar={(c) => decimals[c] || c === Chars.Dot}></Assert>;
   const first = code[cursor];
   if (first === "0") {
     <Assert
@@ -354,7 +321,7 @@ export const readHex = () => {
 
 //#region template literal
 export const readTemplateLiteral = () => {
-  <Assert fn={readTemplateLiteral} expectScopes={[LexicalScope.TemplateLiteral]}></Assert>;
+  <Assert fn={readTemplateLiteral}></Assert>;
   const start = cursor;
   for (let char = code[cursor]; char !== Chars.GraveAccent; ) {
     if (char === Chars.BackSlash) {
@@ -392,8 +359,11 @@ export const readRegExpLiteral = () => {
   // Skip ending `/`.
   cursor++;
   const regLiteral = code.slice(start, cursor);
-  const flags = readWord();
-  return regLiteral + flags;
+  if (identifier[code[cursor]]) {
+    const flags = readWord();
+    return regLiteral + flags;
+  }
+  return regLiteral;
 };
 
 //#endregion
@@ -402,11 +372,12 @@ const otherPunctuators =
   "{ ( ) [ ] . ... ; , < > <= >= == != === !== + - * % ** ++ -- << >> >>> & | ^ ! ~ && || ?? ? : = += -= *= %= **= <<= >>= >>>= &= |= ^= &&= ||= ??= =>".split(
     " "
   );
+// const punctuators = toMap(["?", ...otherPunctuators.map((p) => p[0]!)]);
 for (const otherPunctuator of otherPunctuators) {
   insertOperator(otherPunctuator);
 }
 
-export const readOperator = () => {
+export const readPunctuator = () => {
   const current = code[cursor];
   const start = cursor;
   if (current === Chars.QuestionMark) {
@@ -431,3 +402,16 @@ export const readOperator = () => {
   return punctuator;
 };
 
+
+export const analyse = (input: string): LexicalToken[] => {
+  cleanUp();
+  initCode(input);
+  skipCommentAndBlanks();
+  while (true) {
+    skipCommentAndBlanks();
+    const head = code[cursor]!;
+    if (head == null) break;
+    // const scope = scopes.at(-1);
+  }
+  return tokens;
+};

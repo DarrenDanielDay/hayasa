@@ -6,15 +6,13 @@ import {
   skipCommentAndBlanks,
   hasNewline,
   readWord,
-  enterScope,
-  LexicalScope,
   singleQuoteScope,
   tokens,
   doubleQuoteScope,
   readNumericLiteral,
   readTemplateLiteral,
   readRegExpLiteral,
-  readOperator,
+  readPunctuator,
   setCursor,
 } from "./lexer";
 describe("lexer.ts", () => {
@@ -80,7 +78,6 @@ describe("lexer.ts", () => {
     });
     it("should include escape chars", () => {
       initCode("'I \\'m writing \\u0061 parser!' // Some comment");
-      enterScope(LexicalScope.SingleQuoteLiteral);
       singleQuoteScope();
       expect(tokens.at(-1)!.content).toBe("'I \\'m writing \\u0061 parser!'");
     });
@@ -92,7 +89,6 @@ describe("lexer.ts", () => {
     });
     it("should include escape chars", () => {
       initCode('"I \\\'m \\"writing\\" \\x61 parser!" // Some comment');
-      enterScope(LexicalScope.DoubleQuoteLiteral);
       doubleQuoteScope();
       expect(tokens.at(-1)!.content).toBe('"I \\\'m \\"writing\\" \\x61 parser!"');
     });
@@ -175,19 +171,16 @@ describe("lexer.ts", () => {
     });
     it("should read template with expression opening punctuator ${", () => {
       initCode("some template \\${ $\\{ ${1 + 2} after that`");
-      enterScope(LexicalScope.TemplateLiteral);
       const template = readTemplateLiteral();
       expect(template).toBe("some template \\${ $\\{ ${");
     });
     it("should read template with trailing `", () => {
       initCode(" after that`");
-      enterScope(LexicalScope.TemplateLiteral);
       const template = readTemplateLiteral();
       expect(template).toBe(" after that`");
     });
     it("should include escaped sequence \\`", () => {
       initCode("Template with escaped grave accent punctuator \\` some other text` // not included ");
-      enterScope(LexicalScope.TemplateLiteral);
       const template = readTemplateLiteral();
       expect(template).toBe("Template with escaped grave accent punctuator \\` some other text`");
     });
@@ -203,6 +196,12 @@ describe("lexer.ts", () => {
       expect(regexLiteral).toBe("/[a-z]\\//i");
       expect(code.slice(cursor)).toBe(";");
     });
+    it("should work with regular expression without flag", () => {
+      initCode("/[a-z]\\//;");
+      const regexLiteral = readRegExpLiteral();
+      expect(regexLiteral).toBe("/[a-z]\\//");
+      expect(code.slice(cursor)).toBe(";");
+    })
   });
 
   describe("punctuator", () => {
@@ -212,21 +211,21 @@ describe("lexer.ts", () => {
     it("should handle optional chain", () => {
       initCode("var x = null; x?.toString()");
       setCursor(15);
-      const operator = readOperator();
+      const operator = readPunctuator();
       expect(operator).toBe("?.");
       expect(code.slice(cursor)).toBe("toString()");
     })
     it("should handle conditional expression with numerical literal", () => {
       initCode("true?.0:1");
       setCursor(4);
-      const operator = readOperator();
+      const operator = readPunctuator();
       expect(operator).toBe("?");
       expect(code.slice(cursor)).toBe(".0:1");
     })
     it("should read longest match", () => {
       initCode("1===+1");
       setCursor(1);
-      const operator = readOperator();
+      const operator = readPunctuator();
       expect(operator).toBe("===");
       expect(code.slice(cursor)).toBe("+1");
     });
