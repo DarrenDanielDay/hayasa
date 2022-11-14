@@ -1,5 +1,5 @@
 import { Assert, React } from "./assertions";
-import { charRange, longestMatchLength, toMap, trie } from "./util";
+import { charRange, longestMatchLength, syntaxError, toMap, trie } from "./util";
 
 //#region enums
 
@@ -10,70 +10,74 @@ export const enum LexicalType {
   StringLiteral,
   NumericLiteral,
   Template,
+  RegularExpressionLiteral,
 }
 export const enum LexicalScope {
   TopLevel,
-
+  /**
+   * `( ... )`
+   */
+  Parenthesis,
+  /**
+   * `[ ... ]`
+   */
+  Bracket,
+  /**
+   * `{ ... }`
+   */
+  Brace,
+  /**
+   * ``
+   */
+  TemplateLiteral,
+  /**
+   * ` ... ${ ... } ... `
+   */
   TemplateLiteralExpression,
 }
 
 export const enum Chars {
-  Space = " ",
-  NewLine = "\n",
-  Slash = "/",
-  BackSlash = "\\",
-  SingleQuote = "'",
-  DoubleQuote = '"',
   GraveAccent = "`",
-  Star = "*",
+  Inverse = "~",
+  ExclamationMark = "!",
+  At = "@",
+  Pound = "#",
   Dollar = "$",
+  Percentage = "%",
+  Circumflex = "^",
+  And = "&",
+  Star = "*",
+  LParenthesis = "(",
+  RParenthesis = ")",
+  Minus = "-",
   UnderLine = "_",
   Assign = "=",
   Plus = "+",
-  Minus = "-",
-  Inverse = "~",
-  QuestionMark = "?",
-  ExclamationMark = "!",
-  Comma = ",",
-  Dot = ".",
-  Colon = ":",
-  Semicolon = ";",
-  LParenthesis = "(",
-  RParenthesis = ")",
   LBracket = "[",
-  RBracket = "]",
   LBrace = "{",
+  RBracket = "]",
   RBrace = "}",
+  BackSlash = "\\",
+  Or = "|",
+  Semicolon = ";",
+  Colon = ":",
+  SingleQuote = "'",
+  DoubleQuote = '"',
+  NewLine = "\n",
+  Comma = ",",
   LT = "<",
+  Dot = ".",
   GT = ">",
+  QuestionMark = "?",
+  Slash = "/",
+  Space = " ",
 }
 
-export const enum ReservedOrKeywords {
-  // declarations
-  Const = "const",
-  Var = "var",
-  Let = "let",
-
-  // loops/scope
-  With = "with",
-  Function = "function",
-  For = "for",
-  While = "while",
-  Do = "do",
-
-  // import/export
-  Import = "import",
-  Export = "export",
-  Package = "package",
-
-  // generator
-  Yield = "yield",
-  Enum = "enum",
-
-  // async/await
-  Async = "async",
-  Await = "await",
-}
+const reservedWord = toMap(
+  "await break case catch class const continue debugger default delete do else enum export extends false finally for function if import in instanceof new null return super switch this throw true try typeof var void while with yield".split(
+    " "
+  )
+);
 
 export interface LexicalToken {
   type: LexicalType;
@@ -210,10 +214,13 @@ const createQuoteScope = (quote: '"' | "'") => {
   return () => {
     <Assert currentChar={quote}></Assert>;
     const start = cursor;
-    for (let char = code[++cursor]; char !== quote; char = code[++cursor]) {
+    for (let char = code[++cursor]; char !== quote; ) {
       if (char === Chars.BackSlash) {
         skipEscapeSequence();
+        char = code[cursor];
+        continue;
       }
+      char = code[++cursor]
     }
     // Skip ending quote.
     cursor++;
@@ -231,13 +238,16 @@ export const doubleQuoteScope = createQuoteScope('"');
 //#region numeric literal
 const decimals = toMap(digits);
 const decimals_ = toMap(digits.concat(Chars.UnderLine));
+const numericLiteralStart = toMap([...digits, Chars.Dot]);
 export const readNumericLiteral = () => {
   <Assert fn={readNumericLiteral} currentChar={(c) => decimals[c] || c === Chars.Dot}></Assert>;
   const first = code[cursor];
   if (first === "0") {
     <Assert
       fn={readNumericLiteral}
-      nextChar={(c) => decimals[c] || [..."bxo"].some((cc) => cc === c || cc === c.toLowerCase())}
+      nextChar={(c) =>
+        !c.trim() || !!operatorTrie[c] || decimals[c] || [..."bxo"].some((cc) => cc === c || cc === c.toLowerCase())
+      }
     ></Assert>;
     switch (code[cursor + 1]) {
       case "b":
@@ -321,9 +331,10 @@ export const readHex = () => {
 
 //#region template literal
 export const readTemplateLiteral = () => {
-  <Assert fn={readTemplateLiteral}></Assert>;
+  <Assert fn={readTemplateLiteral} expectScopes={[LexicalScope.TemplateLiteral]}></Assert>;
   const start = cursor;
-  for (let char = code[cursor]; char !== Chars.GraveAccent; ) {
+  let char = code[cursor];
+  while (char !== Chars.GraveAccent) {
     if (char === Chars.BackSlash) {
       skipEscapeSequence();
       char = code[cursor];
@@ -336,6 +347,9 @@ export const readTemplateLiteral = () => {
       break;
     }
     char = code[++cursor];
+  }
+  if (char === Chars.GraveAccent) {
+    quiteScope();
   }
   // Skip ending punctuator.
   cursor++;
@@ -368,12 +382,12 @@ export const readRegExpLiteral = () => {
 
 //#endregion
 const [operatorTrie, insertOperator] = trie();
-const otherPunctuators =
-  "{ ( ) [ ] . ... ; , < > <= >= == != === !== + - * % ** ++ -- << >> >>> & | ^ ! ~ && || ?? ? : = += -= *= %= **= <<= >>= >>>= &= |= ^= &&= ||= ??= =>".split(
+const punctuators =
+  "{ } ( ) [ ] . ... ; , < > <= >= == != === !== + - * / % ** ++ -- << >> >>> & | ^ ! ~ && || ?? ? : = += -= *= %= **= <<= >>= >>>= &= |= ^= &&= ||= ??= =>".split(
     " "
   );
 // const punctuators = toMap(["?", ...otherPunctuators.map((p) => p[0]!)]);
-for (const otherPunctuator of otherPunctuators) {
+for (const otherPunctuator of punctuators) {
   insertOperator(otherPunctuator);
 }
 
@@ -395,23 +409,126 @@ export const readPunctuator = () => {
     cursor += length;
   }
   const punctuator = code.slice(start, cursor);
-  tokens.push({
-    type: LexicalType.Punctuator,
-    content: punctuator,
-  });
   return punctuator;
 };
 
+const closingTokens = toMap([Chars.RParenthesis, Chars.RBracket, Chars.RBrace]);
+const matchingScope: Record<string, LexicalScope> = {
+  [Chars.RParenthesis]: LexicalScope.Parenthesis,
+  [Chars.RBracket]: LexicalScope.Bracket,
+  [Chars.RBrace]: LexicalScope.Brace,
+};
+const semi = { type: LexicalType.Punctuator, content: Chars.Semicolon };
 
-export const analyse = (input: string): LexicalToken[] => {
+export const tokenize = (input: string): LexicalToken[] => {
   cleanUp();
   initCode(input);
-  skipCommentAndBlanks();
-  while (true) {
+  const codeLength = code.length;
+  while (cursor < codeLength) {
     skipCommentAndBlanks();
-    const head = code[cursor]!;
-    if (head == null) break;
-    // const scope = scopes.at(-1);
+    const head = code[cursor];
+    //#region string literal
+    if (head === Chars.SingleQuote) {
+      singleQuoteScope();
+      continue;
+    }
+    if (head === Chars.DoubleQuote) {
+      doubleQuoteScope();
+      continue;
+    }
+    //#endregion
+
+    //#region numeric literal
+    if (numericLiteralStart[head]) {
+      if (!(head === Chars.Dot && !decimals[code[cursor + 1]])) {
+        const numericLiteral = readNumericLiteral();
+        resolveToken({
+          content: numericLiteral,
+          type: LexicalType.NumericLiteral,
+        });
+        continue;
+      }
+    }
+    //#endregion
+
+    //#region punctuator & regular expression & template literal expression terminator
+    if (operatorTrie[head]) {
+      if (head === Chars.Slash) {
+        const { content, type } = tokens.at(-1) ?? semi;
+        if (
+          type === LexicalType.Reserved ||
+          (type === LexicalType.Punctuator && content !== Chars.RBracket && content !== Chars.RParenthesis)
+        ) {
+          const regexp = readRegExpLiteral();
+          resolveToken({
+            content: regexp,
+            type: LexicalType.RegularExpressionLiteral,
+          });
+          continue;
+        }
+      }
+      const currentScope = scopes.at(-1);
+      if (head === Chars.RBrace) {
+        if (currentScope === LexicalScope.TemplateLiteralExpression) {
+          quiteScope();
+          const template = readTemplateLiteral();
+          resolveToken({
+            content: template,
+            type: LexicalType.Template,
+          });
+          continue;
+        }
+      }
+      const punctuator = readPunctuator();
+      resolveToken({
+        content: punctuator,
+        type: LexicalType.Punctuator,
+      });
+      if (closingTokens[head]) {
+        if (__DEV__) {
+          const matched = matchingScope[head];
+          if (currentScope !== matched) {
+            return syntaxError(`Unmatched closing token: "${head}"`, code, cursor - 1);
+          }
+        }
+        quiteScope();
+      } else if (head === Chars.LParenthesis) {
+        enterScope(LexicalScope.Parenthesis);
+      } else if (head === Chars.LBracket) {
+        enterScope(LexicalScope.Bracket);
+      } else if (head === Chars.LBrace) {
+        enterScope(LexicalScope.Brace);
+      }
+      continue;
+    }
+    //#endregion
+
+    //#region template literal
+    if (head === Chars.GraveAccent) {
+      enterScope(LexicalScope.TemplateLiteral);
+      cursor++;
+      const templateLiteral = readTemplateLiteral();
+      resolveToken({
+        content: `\`${templateLiteral}`,
+        type: LexicalType.Template,
+      });
+      continue;
+    }
+    //#endregion
+
+    //#region identifier & keyword
+    const word = readWord();
+    const lastToken = tokens.at(-1) ?? semi;
+    resolveToken({
+      content: word,
+      type: reservedWord[word] && lastToken.content !== Chars.Dot ? LexicalType.Reserved : LexicalType.Identifier,
+    });
+    //#endregion
+  }
+  if (__DEV__) {
+    if (scopes.length !== 1) {
+      return syntaxError("Missing parenthesis/bracket/brace", code, code.length - 1);
+    }
   }
   return tokens;
 };

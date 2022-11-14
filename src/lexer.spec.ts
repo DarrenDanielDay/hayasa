@@ -1,3 +1,6 @@
+import { readFile, writeFile } from "fs/promises";
+import { join } from "path";
+import { cwd } from "process";
 import {
   cleanUp,
   initCode,
@@ -14,7 +17,24 @@ import {
   readRegExpLiteral,
   readPunctuator,
   setCursor,
+  tokenize,
+  enterScope,
+  LexicalScope,
+  LexicalToken,
+  readTokens,
+  LexicalType,
 } from "./lexer";
+
+function testFile(name: string): string {
+  return join(cwd(), "test-code", name);
+}
+function lexerFile(name: string) {
+  return readFile(testFile(name), { encoding: "utf-8" });
+}
+function lexerOutput(tokens: LexicalToken[], name: string) {
+  return writeFile(testFile(name), tokens.map((t) => t.content).join(" "));
+}
+
 describe("lexer.ts", () => {
   describe("skip comment and blanks", () => {
     beforeEach(() => {
@@ -171,18 +191,28 @@ describe("lexer.ts", () => {
     });
     it("should read template with expression opening punctuator ${", () => {
       initCode("some template \\${ $\\{ ${1 + 2} after that`");
+      enterScope(LexicalScope.TemplateLiteral);
       const template = readTemplateLiteral();
       expect(template).toBe("some template \\${ $\\{ ${");
     });
     it("should read template with trailing `", () => {
       initCode(" after that`");
+      enterScope(LexicalScope.TemplateLiteral);
       const template = readTemplateLiteral();
       expect(template).toBe(" after that`");
     });
     it("should include escaped sequence \\`", () => {
       initCode("Template with escaped grave accent punctuator \\` some other text` // not included ");
+      enterScope(LexicalScope.TemplateLiteral);
       const template = readTemplateLiteral();
       expect(template).toBe("Template with escaped grave accent punctuator \\` some other text`");
+    });
+    it("should read part after template interpolation", () => {
+      initCode("`a ${b} c`");
+      setCursor(6);
+      enterScope(LexicalScope.TemplateLiteral);
+      const template = readTemplateLiteral();
+      expect(template).toBe("} c`");
     });
   });
 
@@ -201,7 +231,7 @@ describe("lexer.ts", () => {
       const regexLiteral = readRegExpLiteral();
       expect(regexLiteral).toBe("/[a-z]\\//");
       expect(code.slice(cursor)).toBe(";");
-    })
+    });
   });
 
   describe("punctuator", () => {
@@ -214,20 +244,54 @@ describe("lexer.ts", () => {
       const operator = readPunctuator();
       expect(operator).toBe("?.");
       expect(code.slice(cursor)).toBe("toString()");
-    })
+    });
     it("should handle conditional expression with numerical literal", () => {
       initCode("true?.0:1");
       setCursor(4);
       const operator = readPunctuator();
       expect(operator).toBe("?");
       expect(code.slice(cursor)).toBe(".0:1");
-    })
+    });
     it("should read longest match", () => {
       initCode("1===+1");
       setCursor(1);
       const operator = readPunctuator();
       expect(operator).toBe("===");
       expect(code.slice(cursor)).toBe("+1");
+    });
+  });
+  describe("tokenize", () => {
+    it("should parse this content", async () => {
+      const content = await lexerFile("lexer.js");
+      let tokens: LexicalToken[] = [];
+      expect(() => {
+        tokens = tokenize(content);
+      }).not.toThrow();
+      expect(readTokens()).toBe(tokens);
+      expect(tokens.find((t) => t.content === "for" && t.type === LexicalType.Reserved)).toBeFalsy();
+      await lexerOutput(tokens, "lexer-output.js");
+    }, 1000);
+    it("should parse react dom umd", async () => {
+      const content = await lexerFile("react-dom.production.min.js");
+      let tokens: LexicalToken[] = [];
+      expect(() => {
+        tokens = tokenize(content);
+      }).not.toThrow();
+      expect(readTokens()).toBe(tokens);
+      await lexerOutput(tokens, "react-dom-parsed.js");
+    });
+    it("should emit syntax error under dev mode when parenthesis/bracket/brace does not match", () => {
+      expect(() => {
+        tokenize(`const x = []};`);
+      }).toThrow(SyntaxError);
+      expect(() => {
+        tokenize(`const x = [;`);
+      }).toThrow(SyntaxError);
+    });
+    it("should cover regexp as first token", () => {
+      expect(() => {
+        tokenize('/ak+q/i.test("akkq")');
+      }).not.toThrow();
     });
   });
 });

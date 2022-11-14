@@ -1,7 +1,7 @@
 /// <reference path="./global.d.ts" />
 
 import { Assert, React } from "./assertions";
-import { LexicalScope, enterScope } from "./lexer";
+import { LexicalScope, enterScope, initCode, cleanUp } from "./lexer";
 
 describe("utils.ts", () => {
   describe("assert", () => {
@@ -9,12 +9,14 @@ describe("utils.ts", () => {
     beforeEach(() => {
       errorSpy = jest.spyOn(console, "error");
       errorSpy.mockImplementation(() => {});
+      cleanUp();
     });
     afterEach(() => {
       errorSpy.mockRestore();
     });
     it("should log error with failed assertion", () => {
       enterScope(LexicalScope.TopLevel);
+      initCode("cs");
       <Assert
         fn={function f() {}}
         {...{
@@ -24,7 +26,13 @@ describe("utils.ts", () => {
           excludeScopes: [LexicalScope.TopLevel],
         }}
       ></Assert>;
-      expect(errorSpy).toBeCalledWith(`f: current char`);
+      expect(errorSpy).toBeCalledWith(`f: current char: c`);
+    });
+
+    it("should not emit error when no next char or current char", () => {
+      initCode("");
+      <Assert currentChar="a" nextChar={(c) => c === "a"}></Assert>;
+      expect(errorSpy).not.toBeCalled();
     });
 
     it("should not work with production mode", () => {

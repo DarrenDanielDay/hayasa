@@ -23,7 +23,13 @@ export interface AssertOptions {
   excludeScopes?: LexicalScope[];
 }
 
-export const Assert: react.FC<react.PropsWithChildren<AssertOptions>> = ({ fn, currentChar, nextChar, expectScopes, excludeScopes }) => {
+export const Assert: react.FC<react.PropsWithChildren<AssertOptions>> = ({
+  fn,
+  currentChar,
+  nextChar,
+  expectScopes,
+  excludeScopes,
+}) => {
   if (!__DEV__) {
     return null;
   }
@@ -34,13 +40,14 @@ export const Assert: react.FC<react.PropsWithChildren<AssertOptions>> = ({ fn, c
   const current = code[cursor];
   const next = code[cursor + 1];
   if (
-    (typeof currentChar === "string" && currentChar !== current) ||
-    (typeof currentChar === "function" && !currentChar(current))
+    current &&
+    ((typeof currentChar === "string" && currentChar !== current) ||
+      (typeof currentChar === "function" && !currentChar(current)))
   ) {
-    tagged("current char");
+    tagged(`current char: ${current}`);
   }
-  if (typeof nextChar === "function" && !nextChar(next)) {
-    tagged("next");
+  if (next && typeof nextChar === "function" && !nextChar(next)) {
+    tagged(`next: ${next}`);
   }
   const currentScope = scopes.at(-1);
   if (Array.isArray(expectScopes) && expectScopes.every((s) => s !== currentScope)) {

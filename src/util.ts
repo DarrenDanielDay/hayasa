@@ -5,6 +5,18 @@ export const charRange = (begin: string, end: string) => {
 
 export const toMap = (keys: string[]) => Object.fromEntries(keys.map((k) => [k, true]));
 
+export const syntaxError = (msg: string, code: string, cursor: number): never => {
+  let lineStart = cursor,
+    lineEnd = cursor;
+  while (code[lineStart] !== "\n" && lineStart >= 0) lineStart--;
+  lineStart++;
+  while (code[lineEnd] !== "\n" && lineEnd < code.length) lineEnd++;
+  const positionMessage = `${msg}
+${code.slice(lineStart, lineEnd)}
+${" ".repeat(cursor - lineStart)}^`;
+  throw new SyntaxError(positionMessage);
+};
+
 export interface TrieNode {
   [key: string]: TrieNode | undefined;
 }
@@ -31,7 +43,7 @@ export const longestMatchLength = (root: TrieNode, code: string, begin: number):
       break;
     }
     node = next;
-    count++
+    count++;
   }
   return count;
 };
