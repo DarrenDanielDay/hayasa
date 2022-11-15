@@ -174,7 +174,13 @@ export const skipCommentAndBlanks = () => {
 //#region identifier/keywords
 
 const alphabet = charRange("a", "z");
-const identifierNoDigitChars = [...alphabet, ...alphabet.map((c) => c.toUpperCase()), Chars.Dollar, Chars.UnderLine];
+const identifierNoDigitChars = [
+  ...alphabet,
+  ...alphabet.map((c) => c.toUpperCase()),
+  Chars.Dollar,
+  Chars.UnderLine,
+  /** for private symbol */ Chars.Pound,
+];
 const identifierNoDigit = toMap(identifierNoDigitChars);
 
 const digits = charRange("0", "9");
@@ -220,7 +226,7 @@ const createQuoteScope = (quote: '"' | "'") => {
         char = code[cursor];
         continue;
       }
-      char = code[++cursor]
+      char = code[++cursor];
     }
     // Skip ending quote.
     cursor++;

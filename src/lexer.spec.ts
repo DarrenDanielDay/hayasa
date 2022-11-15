@@ -90,6 +90,16 @@ describe("lexer.ts", () => {
       expect(word).toBe("Hello");
       expect(code.slice(cursor)).toBe(", world!");
     });
+    it("should read private field", () => {
+      initCode(`\
+class A {
+  #foo = 1;
+}
+`);
+      setCursor(12);
+      const word = readWord();
+      expect(word).toBe("#foo");
+    });
   });
 
   describe("single quote literal", () => {
