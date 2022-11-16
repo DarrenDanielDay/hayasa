@@ -34,12 +34,14 @@
   ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "browser": "./dist/index.browser.esm.min.js",
       "node": "./dist/index.js",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./lexer": {
+      "types": "./dist/lexer.d.ts",
       "browser": "./dist/lexer.js",
       "node": "./dist/lexer.js",
       "import": "./dist/lexer.js",
