@@ -538,3 +538,5 @@ export const tokenize = (input: string): LexicalToken[] => {
   }
   return tokens;
 };
+
+export const stringify = (tokens: LexicalToken[]) => tokens.map((token) => token.content).join(Chars.Space);

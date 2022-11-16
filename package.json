@@ -38,6 +38,12 @@
       "node": "./dist/index.js",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./lexer": {
+      "browser": "./dist/lexer.js",
+      "node": "./dist/lexer.js",
+      "import": "./dist/lexer.js",
+      "default": "./dist/lexer.js"
     }
   },
   "devDependencies": {

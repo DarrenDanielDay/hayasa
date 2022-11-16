@@ -23,6 +23,7 @@ import {
   LexicalToken,
   readTokens,
   LexicalType,
+  stringify,
 } from "./lexer";
 
 function testFile(name: string): string {
@@ -302,6 +303,13 @@ class A {
       expect(() => {
         tokenize('/ak+q/i.test("akkq")');
       }).not.toThrow();
+    });
+  });
+  describe("stringify", () => {
+    it("should render code", () => {
+      const tokens = tokenize("const a=1+2;");
+      const code = stringify(tokens);
+      expect(code).toBe("const a = 1 + 2 ;");
     });
   });
 });

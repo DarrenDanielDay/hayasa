@@ -1,1 +1,1 @@
-export { tokenize } from "./lexer";
+export { tokenize, stringify } from "./lexer";
