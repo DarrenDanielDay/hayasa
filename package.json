@@ -29,6 +29,7 @@
   },
   "homepage": "https://github.com/DarrenDanielDay/hayasa#readme",
   "files": [
+    "tsconfig.json",
     "dist",
     "src"
   ],
